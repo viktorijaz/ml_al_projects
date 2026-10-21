@@ -9,18 +9,24 @@ show and explains itself from first principles.
 | # | Project | What it does | Status |
 |---|---|---|---|
 | 1 | [`spam/`](spam/) | SMS spam classifier — TF-IDF + Naive Bayes, with a full evaluation report | ✅ shipped |
-| 2 | `report-card/` | grade a model properly — confusion matrix, threshold tuning, calibration | next |
+| 2 | [`report-card/`](report-card/) | grade a model properly — threshold tuning, ROC/PR-AUC, calibration | ✅ shipped |
+| 3 | `features/` | why the features decide everything — engineer + compare, measure the lift | next |
 
-Rung 1 writeup (the concepts, from first principles): [`spam/README.md`](spam/README.md).
+Per-rung writeups (the concepts, from first principles):
+[`spam/README.md`](spam/README.md) · [`report-card/README.md`](report-card/README.md).
 
-## Run rung 1
+## Run it
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install scikit-learn pandas numpy
+pip install scikit-learn pandas numpy matplotlib
+# rung 1 — train + score
 cd spam
 python train.py                              # train + print the evaluation report
 python score.py "You won a FREE prize!!!"    # score a message
+# rung 2 — grade it properly
+cd ../report-card
+python report.py                             # report card + roc.png, pr.png, calibration.png
 ```
 
 ---
