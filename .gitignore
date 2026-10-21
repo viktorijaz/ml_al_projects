@@ -1,0 +1,10 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# build artifacts (regenerate with: python train.py)
+*.joblib
+
+# dataset archives (the extracted data is kept; the zip is redundant)
+*.zip
