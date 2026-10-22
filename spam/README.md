@@ -113,7 +113,7 @@ All of them come from the **confusion matrix** — the scoreboard crossing _what
 - **TN** — True negatives
 - **FP** — False positives
 - **FN** — False negatives
-- **TN** — True negatives
+- **TP** — True positives
 
 ```
                    model said HAM    model said SPAM
@@ -151,4 +151,4 @@ Tuning that balance (moving the decision threshold) is **rung 2 — `report-card
 
 ---
 
-Done when: beats the baseline (97% > 86.6% ✅), reports more than accuracy ✅, no leakage (TF-IDF fit on train only, inside the Pipeline ✅).\_
+Done when: beats the baseline (97% > 86.6% ✅), reports more than accuracy ✅, no leakage (TF-IDF fit on train only, inside the Pipeline ✅).
