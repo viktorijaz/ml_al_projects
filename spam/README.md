@@ -110,6 +110,11 @@ Two numerical fixes that keep it working:
 
 All of them come from the **confusion matrix** — the scoreboard crossing _what was true_ against _what the model said_ (numbers from this model's test set):
 
+- **TN** — True negatives
+- **FP** — False positives
+- **FN** — False negatives
+- **TN** — True negatives
+
 ```
                    model said HAM    model said SPAM
    actually HAM        966                0        ← TN=966, FP=0
@@ -146,4 +151,4 @@ Tuning that balance (moving the decision threshold) is **rung 2 — `report-card
 
 ---
 
-_Rung 1 of the ML/DL ladder. Done when: beats the baseline (97% > 86.6% ✅), reports more than accuracy ✅, no leakage (TF-IDF fit on train only, inside the Pipeline ✅)._
+Done when: beats the baseline (97% > 86.6% ✅), reports more than accuracy ✅, no leakage (TF-IDF fit on train only, inside the Pipeline ✅).\_

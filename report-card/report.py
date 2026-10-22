@@ -1,23 +1,14 @@
 """
-Rung 2 — report-card/ · grade a model properly.
-
-Rung 1 printed ONE confusion matrix at the default 0.5 threshold and called it a
-day. But 0.5 is an arbitrary dial setting. A real "report card" shows the whole
-dial: how precision/recall trade off as you move the threshold, a single number
-that summarizes every threshold at once (AUC), and whether the model's stated
-probabilities are HONEST (calibration).
-
-Same data, same pipeline as rung 1 — this rung is about *evaluation*, not a new model.
-
-Run:  python report.py
-Writes three plots next to this file: roc.png, pr.png, calibration.png
+Rung 2 — report-card/ · grade a model properly (same data/model as rung 1).
+Shows the whole threshold dial, AUC, calibration, cross-validation, and a verdict.
+Run:  python report.py   (writes roc.png, pr.png, calibration.png)
 """
 
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
@@ -33,17 +24,16 @@ from sklearn.metrics import (
 )
 from sklearn.calibration import calibration_curve
 import matplotlib
-matplotlib.use("Agg")  # no display needed; we only save PNGs
+matplotlib.use("Agg")  # no display; just save PNGs
 import matplotlib.pyplot as plt
 
 HERE = Path(__file__).parent
-# Reuse rung 1's dataset — report-card grades the SAME model, it doesn't retrain a new idea.
-DATA = HERE.parent / "spam" / "data" / "SMSSpamCollection"
+DATA = HERE.parent / "spam" / "data" / "SMSSpamCollection"   # reuse rung 1's data
 
 
-# --- rebuild rung 1 exactly (same split, same pipeline) ------------------
+# rebuild rung 1 exactly (same split, same pipeline)
 df = pd.read_csv(DATA, sep="\t", header=None, names=["label", "text"])
-y = (df["label"] == "spam").astype(int)      # 1 = spam (the positive class)
+y = (df["label"] == "spam").astype(int)      # 1 = spam
 X = df["text"]
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -56,15 +46,13 @@ model = make_pipeline(
 )
 model.fit(X_train, y_train)
 
-# The raw material of this whole rung: P(spam) for every test message, 0.0–1.0.
-# Every metric below is just a different way of reading THIS one array of scores.
+# P(spam) per test message — the raw material every metric below reads.
 proba = model.predict_proba(X_test)[:, 1]
 
 print(f"Test set: {len(y_test)} messages | {int(y_test.sum())} spam ({y_test.mean():.1%})\n")
 
 
-# --- 1. the default: one confusion matrix at threshold 0.5 ---------------
-# This is all rung 1 showed. It's one row of the table below.
+# 1. confusion matrix + P/R/F1 at a given threshold (0.5 = what rung 1 showed).
 def report_at(threshold):
     pred = (proba >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_test, pred).ravel()
@@ -81,25 +69,19 @@ print(f"  precision={d['precision']:.3f}  recall={d['recall']:.3f}  f1={d['f1']:
 print(f"  (caught {d['tp']} spam, missed {d['fn']}, flagged {d['fp']} real messages)\n")
 
 
-# --- 2. threshold sweep: 0.5 is a DIAL, not a law ------------------------
-# Lower the bar -> catch more spam (recall up) but flag more real mail (precision down).
-# Raise it -> the opposite. There is no single "right" threshold; there's a right
-# threshold FOR A COST. We show the trade and then pick two sensible operating points.
+# 2. threshold sweep — 0.5 is a dial: lower = more recall/less precision, higher = the reverse.
 print("Threshold sweep — precision/recall trade as you turn the dial:")
 print("  thresh   precision   recall     f1     (FP  FN)")
 rows = [report_at(t) for t in np.arange(0.1, 0.96, 0.1)]
 for r in rows:
     print(f"   {r['t']:.2f}      {r['precision']:.3f}     {r['recall']:.3f}   {r['f1']:.3f}   ({r['fp']:3d} {r['fn']:3d})")
 
-# Operating point A — best F1 (balance precision and recall).
+# pick two operating points: best F1, and (for spam) best recall at precision >= 0.99.
 fine = [report_at(t) for t in np.arange(0.05, 0.96, 0.01)]
 best_f1 = max(fine, key=lambda r: r["f1"])
 print(f"\n  -> best-F1 operating point:  threshold={best_f1['t']:.2f}  "
       f"f1={best_f1['f1']:.3f}  (precision={best_f1['precision']:.3f} recall={best_f1['recall']:.3f})")
 
-# Operating point B — a spam filter's real cost: flagging a real message (FP) is
-# worse than missing a spam (FN). So demand precision >= 0.99, then take the best
-# recall we can still get. This is "choosing the threshold for the cost."
 safe = [r for r in fine if r["precision"] >= 0.99]
 if safe:
     best_safe = max(safe, key=lambda r: r["recall"])
@@ -108,12 +90,7 @@ if safe:
           f"flags {best_safe['fp']} real messages)")
 
 
-# --- 3. AUC: one number for the WHOLE dial -------------------------------
-# A single threshold is one row. AUC summarizes performance across ALL thresholds
-# at once, so you can compare two models without first fixing a threshold.
-#   ROC-AUC   : P(a random spam scores higher than a random ham). 0.5 = coin, 1.0 = perfect.
-#   PR-AUC    : area under precision-recall. On IMBALANCED data (13% spam) this is the
-#               honest one — ROC-AUC looks flatteringly high when negatives dominate.
+# 3. AUC — one number for ALL thresholds. PR-AUC is honest on imbalance; ROC-AUC flatters.
 roc_auc = roc_auc_score(y_test, proba)
 pr_auc = average_precision_score(y_test, proba)
 print(f"\nWhole-dial summary:")
@@ -121,17 +98,7 @@ print(f"  ROC-AUC = {roc_auc:.3f}   (rank quality: random spam > random ham this
 print(f"  PR-AUC  = {pr_auc:.3f}   (the honest one for 13%-spam imbalance)")
 
 
-# --- 4. calibration: are the PROBABILITIES honest? -----------------------
-# Rank-quality (AUC) and honesty are different things. A model can rank perfectly
-# yet say "0.99" for things that are only 70% spam. Calibration bins the predictions
-# and asks: of messages I called ~0.8, were ~80% actually spam?
-# (Real-world tidbit: Naive Bayes is famously MIS-calibrated — the "naive" independence
-#  assumption multiplies correlated evidence as if independent, so its probabilities
-#  are a great *ranker* but a poor *number*. The textbook says it's over-confident
-#  (pushed to 0/1); on THIS run it comes out the other way — under-confident in the
-#  middle (see the printout: 0.44 predicted, ~1.0 actual). Either way the lesson holds:
-#  score.py's "P(spam)=99%" means "very spammy," not a literal 99%. Trust the ranking,
-#  not the digit.)
+# 4. calibration — are the probabilities honest? NB ranks well but its numbers aren't literal.
 frac_pos, mean_pred = calibration_curve(y_test, proba, n_bins=10, strategy="uniform")
 print("\nCalibration — predicted vs. actual (closer to equal = more honest):")
 print("   predicted   actually spam")
@@ -140,7 +107,24 @@ for mp, fp_ in zip(mean_pred, frac_pos):
     print(f"     {mp:.2f}        {fp_:.2f}   {'(over-confident)' if gap < -0.1 else '(under-confident)' if gap > 0.1 else ''}")
 
 
-# --- plots: the report card as pictures ----------------------------------
+# 5. cross-validation — is the grade a fluke of one split? Pipeline refits per fold = no leakage.
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+cv_scores = cross_validate(
+    model, X, y, cv=cv,
+    scoring=["precision", "recall", "f1", "average_precision", "roc_auc"],
+)
+print("\n5-fold stratified cross-validation (mean ± std across folds):")
+for m in ["precision", "recall", "f1", "average_precision", "roc_auc"]:
+    s = cv_scores[f"test_{m}"]
+    label = "PR-AUC " if m == "average_precision" else m
+    print(f"  {label:9s} {s.mean():.3f} ± {s.std():.3f}")
+cv_f1 = cv_scores["test_f1"]
+cv_prauc = cv_scores["test_average_precision"]
+print(f"  -> F1 spread is {cv_f1.std():.3f}: "
+      f"{'tight → the grade is real, not a lucky split' if cv_f1.std() < 0.03 else 'wide → one split would have misled you'}")
+
+
+# plots: ROC, PR, calibration
 fpr, tpr, _ = roc_curve(y_test, proba)
 plt.figure(figsize=(5, 5))
 plt.plot(fpr, tpr, label=f"model (AUC={roc_auc:.3f})")
@@ -165,4 +149,47 @@ plt.title("Calibration"); plt.legend(); plt.tight_layout()
 plt.savefig(HERE / "calibration.png", dpi=110); plt.close()
 
 print(f"\nSaved plots -> roc.png, pr.png, calibration.png")
-print("The one-number grade was a lie; this is the report card.")
+
+
+# 6. report card — roll it all into red/amber/green + a one-sentence verdict.
+GREEN, AMBER, RED = "🟢 GREEN", "🟡 AMBER", "🔴 RED"
+
+def band(value, green_at, amber_at):
+    """Higher is better: >= green_at is green, >= amber_at is amber, else red."""
+    return GREEN if value >= green_at else AMBER if value >= amber_at else RED
+
+acc = (d["tp"] + d["tn"]) / len(y_test)        # accuracy at the default 0.5
+base_acc = 1 - y_test.mean()                   # "always predict ham" baseline
+op = best_safe if safe else best_f1            # the operating point we'd actually ship
+
+card = [
+    ("Beats the baseline",
+     GREEN if acc > base_acc + 0.05 else AMBER if acc > base_acc else RED,
+     f"accuracy {acc:.3f} vs always-ham baseline {base_acc:.3f}"),
+    ("Discrimination (ranking)",
+     band(pr_auc, 0.90, 0.75),
+     f"PR-AUC {pr_auc:.3f}  (ROC-AUC {roc_auc:.3f}; trust PR on imbalance)"),
+    ("Stability across folds",
+     GREEN if cv_f1.std() < 0.03 else AMBER if cv_f1.std() < 0.06 else RED,
+     f"5-fold F1 {cv_f1.mean():.3f} ± {cv_f1.std():.3f}  (not a lucky split)"),
+    ("Cost-aware operating point",
+     GREEN if op["precision"] >= 0.99 else AMBER,
+     f"threshold {op['t']:.2f}: precision {op['precision']:.3f}, recall {op['recall']:.3f}"),
+    ("Probability honesty",
+     AMBER,
+     "ranks well but miscalibrated — treat P(spam) as a score, not a literal %"),
+]
+
+print("\n" + "=" * 64)
+print("  MODEL REPORT CARD")
+print("=" * 64)
+for name, verdict, detail in card:
+    print(f"  {verdict}  {name}")
+    print(f"             {detail}")
+
+print("\n  Verdict — can we trust this model? (one sentence):")
+print(f"    TRUST its spam/ham DECISIONS (beats baseline, PR-AUC {pr_auc:.2f},")
+print(f"    F1 {cv_f1.mean():.2f}±{cv_f1.std():.2f} across folds), run it at "
+      f"threshold ~{op['t']:.2f} not 0.5,")
+print(f"    but do NOT read its P(spam) as a literal probability (miscalibrated)")
+print(f"    — trust the ranking, not the digit.")

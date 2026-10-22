@@ -1,7 +1,5 @@
 """
-Rung 1 — spam/ · the ML shape: data -> features -> model -> evaluation -> a thing that runs.
-
-Classify SMS messages as spam/ham, start to finish, honestly.
+Rung 1 — spam/ · classify SMS as spam/ham, start to finish.
 Run:  python train.py
 """
 
@@ -27,41 +25,33 @@ HERE = Path(__file__).parent
 DATA = HERE / "data" / "SMSSpamCollection"
 MODEL_OUT = HERE / "model.joblib"
 
-# --- 1. DATA -------------------------------------------------------------
-# Tab-separated: <label>\t<message>. label is "ham" or "spam".
+# 1. DATA — tab-separated <label>\t<message>; 1 = spam (the class we want to catch).
 df = pd.read_csv(DATA, sep="\t", header=None, names=["label", "text"])
-# Our "positive" class is spam (that's what we're trying to catch): 1 = spam, 0 = ham.
 y = (df["label"] == "spam").astype(int)
 X = df["text"]
 
 n_spam, n_total = int(y.sum()), len(y)
 print(f"Loaded {n_total} messages | spam: {n_spam} ({n_spam/n_total:.1%}) | ham: {n_total-n_spam}")
 
-# --- TRAIN/TEST SPLIT ----------------------------------------------------
-# We NEVER evaluate on data we trained on. stratify=y keeps the 13% spam
-# ratio in both halves, so the test set is representative.
+# TRAIN/TEST SPLIT — never test on training data; stratify keeps the 13% spam ratio in both halves.
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, stratify=y, random_state=42
 )
 print(f"Train: {len(X_train)} | Test: {len(X_test)}")
 
-# --- BASELINE (always answer first: can my model even beat 'guess majority'?) ---
-# "Always predict ham" — this is the number to beat. On imbalanced data it's
-# deceptively high, which is the whole reason accuracy alone is a lie.
+# BASELINE — "always predict ham"; the bar to beat (deceptively high on imbalanced data = why accuracy alone lies).
 baseline = DummyClassifier(strategy="most_frequent").fit(X_train, y_train)
 base_acc = accuracy_score(y_test, baseline.predict(X_test))
 print(f"\nBaseline (always 'ham') accuracy: {base_acc:.3f}  <- the bar to clear")
 
-# --- 2/3. FEATURES + MODEL (in one Pipeline = NO LEAKAGE) ----------------
-# The TfidfVectorizer is fit INSIDE the pipeline, so it only ever sees the
-# training fold. Fitting it on all data first would leak the test set.
+# 2/3. FEATURES + MODEL in one Pipeline — TF-IDF is fit inside, so it never sees the test set (no leakage).
 model = make_pipeline(
-    TfidfVectorizer(lowercase=True, stop_words="english"),  # text -> TF-IDF numbers
-    MultinomialNB(),                                        # the classic text baseline
+    TfidfVectorizer(lowercase=True, stop_words="english"),
+    MultinomialNB(),
 )
 model.fit(X_train, y_train)
 
-# --- 4. EVALUATION (a panel, not one number) -----------------------------
+# 4. EVALUATION — a panel, not one number.
 pred = model.predict(X_test)
 
 acc = accuracy_score(y_test, pred)
@@ -83,6 +73,6 @@ print(f"  F1       : {f1:.3f}")
 print("\nFull report:")
 print(classification_report(y_test, pred, target_names=["ham", "spam"]))
 
-# --- 5. SHIP: save the whole pipeline (vectorizer + model together) ------
+# 5. SHIP — save the whole pipeline (vectorizer + model together).
 joblib.dump(model, MODEL_OUT)
 print(f"Saved model -> {MODEL_OUT.name}   (now run: python score.py \"your message\")")

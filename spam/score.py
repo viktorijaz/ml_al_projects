@@ -23,8 +23,7 @@ if not msg:
 
 model = joblib.load(MODEL)
 
-# The pipeline outputs P(spam). 0.5 is the default threshold (a choice we'll
-# revisit in rung 2 — report-card/).
+# P(spam); 0.5 is the default threshold (revisited in rung 2 — report-card/).
 proba_spam = model.predict_proba([msg])[0][1]
 label = "SPAM" if proba_spam >= 0.5 else "HAM"
 

@@ -83,6 +83,50 @@ the digit. (If you needed honest probabilities, you'd wrap it in
 
 ---
 
+## 4. Cross-validation — is the grade a fluke of one split?
+
+Everything above came from **one** 80/20 split. That's a single draw — the score could be
+luck (an easy test set) or bad luck. **Stratified k-fold** cuts the data into k parts, trains
+on k−1 and tests on the held-out one, k times, so every message gets tested exactly once. You
+report **mean ± spread**:
+
+```
+5-fold stratified CV:   F1 = 0.877 ± 0.013     (precision 0.998 ± 0.003, PR-AUC 0.966 ± 0.007)
+```
+
+The spread is the point. **±0.013 is tight** → the single-split 0.875 wasn't a lucky draw, the
+grade is real. A *wide* spread would mean one split could have badly misled you.
+
+> ⚠️ **The leakage trap inside CV:** you must refit the TfidfVectorizer *inside each fold*, on
+> that fold's training data only. We do this by passing the whole **Pipeline** to
+> `cross_validate` — so each fold rebuilds its own vocabulary/IDF. Vectorizing all of `X`
+> *first* and then running CV would bake every fold's test words into the features → silent
+> leakage → inflated scores. (Same leakage lesson as rung 1, one level deeper.)
+
+---
+
+## 5. The report card — red / amber / green
+
+All of the above, rolled into a verdict a human reads in five seconds:
+
+```
+🟢 GREEN  Beats the baseline          accuracy 0.970 vs always-ham 0.866
+🟢 GREEN  Discrimination (ranking)    PR-AUC 0.971 (ROC-AUC 0.989)
+🟢 GREEN  Stability across folds      5-fold F1 0.877 ± 0.013
+🟢 GREEN  Cost-aware operating point  threshold 0.35: precision 0.992, recall 0.812
+🟡 AMBER  Probability honesty         ranks well but miscalibrated
+```
+
+**Verdict (the one sentence the whole rung builds to):**
+> **Trust its spam/ham *decisions*** — it beats baseline, ranks excellently (PR-AUC 0.97), and
+> holds up across folds — **run it at threshold ~0.35 (not 0.5)**, but **don't read its
+> `P(spam)` as a literal probability** (it's miscalibrated). *Trust the ranking, not the digit.*
+
+That sentence is the deliverable. A model isn't "good" or "bad" — it's *trustworthy for X, not
+for Y*, and now you can say which, with numbers behind every clause.
+
+---
+
 ## What rung 2 adds over rung 1
 
 | | rung 1 (`spam/`) | rung 2 (`report-card/`) |
@@ -91,6 +135,11 @@ the digit. (If you needed honest probabilities, you'd wrap it in
 | headline metric | accuracy / one F1 | the precision–recall trade, plus AUC |
 | imbalance | noted | measured honestly (PR-AUC) |
 | probabilities | taken at face value | checked for calibration |
-| output | numbers | numbers **+ roc.png, pr.png, calibration.png** |
+| reliability of the number | one split | **5-fold CV, mean ± spread** |
+| output | numbers | numbers + 3 plots **+ a red/amber/green report card & trust verdict** |
+
+**Done when:** confusion matrix → P/R/F1 → ROC-AUC & PR-AUC → a *justified* threshold →
+calibration curve → stratified k-fold with variance → a red/amber/green card — **and you can
+say in one sentence why this model should or shouldn't be trusted.** ✅ (see §5)
 
 **The one line to keep:** *the single-number grade was a lie; the report card is the truth.*
