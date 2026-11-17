@@ -10,7 +10,7 @@ from sklearn.compose import (
 from sklearn.datasets import fetch_openml
 from sklearn.dummy import DummyRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LassoCV, LinearRegression, RidgeCV
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
@@ -85,3 +85,27 @@ plt.savefig(HERE / "residuals.png")
 worst = X_test.assign(actual=y_test, predicted=pred.round(), miss=resid.round(2))
 cols = ["GrLivArea", "OverallQual", "Neighborhood", "SaleCondition", "actual", "predicted", "miss"]
 print(worst.sort_values("miss", key=abs, ascending=False)[cols].head(5).to_string())
+
+# step 4: regularization, the same pipeline with a penalty on big weights
+def log_model(regressor):
+    return TransformedTargetRegressor(
+        regressor=make_pipeline(prep, regressor), func=np.log, inverse_func=np.exp
+    )
+
+
+print()
+ridge = log_model(RidgeCV(alphas=np.logspace(-1, 3, 30)))  # picks the penalty by cross-validation
+report("ridge", ridge)
+lasso = log_model(LassoCV(alphas=np.logspace(-4, -1, 30), max_iter=50_000))
+report("lasso", lasso)
+
+print("ridge penalty:", round(ridge.regressor_[-1].alpha_, 2))
+print("lasso penalty:", round(lasso.regressor_[-1].alpha_, 5))
+
+# which columns lasso kept, and the strongest ones
+names = lasso.regressor_[0].get_feature_names_out()
+weights = lasso.regressor_[-1].coef_
+print(f"lasso kept {(weights != 0).sum()} of {len(weights)} columns")
+top = sorted(zip(weights, names), key=lambda w: abs(w[0]), reverse=True)[:10]
+for w, name in top:
+    print(f"  {w:+.3f}  {name}")
