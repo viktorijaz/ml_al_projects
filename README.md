@@ -12,17 +12,17 @@ show and explains itself from first principles.
 | 2   | [`report-card/`](report-card/) | grade a model properly - threshold tuning, ROC/PR-AUC, calibration        | ✅ shipped |
 | 3   | [`features/`](features/)       | why the features decide everything - engineer + compare, measure the lift | ✅ shipped |
 | 4   | [`prices/`](prices/)           | regression - predict a number (house prices), not a class; residual plots | ✅ shipped |
-| 5   | `forest/`                      | ensembles - decision tree → random forest → gradient boosting (XGBoost)   | next       |
-| 6   | `clusters/`                    | unsupervised - find structure with no labels: k-means + PCA               | planned    |
+| 5   | [`forest/`](forest/)           | ensembles - decision tree → random forest → gradient boosting (XGBoost)   | ✅ shipped |
+| 6   | `clusters/`                    | unsupervised - find structure with no labels: k-means + PCA               | next       |
 
 Per-rung writeups (the concepts, from first principles):
-[`spam/README.md`](spam/README.md) · [`report-card/README.md`](report-card/README.md) · [`features/README.md`](features/README.md) · [`prices/README.md`](prices/README.md).
+[`spam/README.md`](spam/README.md) · [`report-card/README.md`](report-card/README.md) · [`features/README.md`](features/README.md) · [`prices/README.md`](prices/README.md) · [`forest/README.md`](forest/README.md).
 
 ## Run it
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install scikit-learn pandas numpy matplotlib
+pip install scikit-learn pandas numpy matplotlib xgboost
 # rung 1 - train + score
 cd spam
 python train.py                              # train + print the evaluation report
@@ -37,6 +37,12 @@ python features.py
 cd ../prices
 python prices.py                             # three looks before modelling → looks.png
 python model.py                              # median guess vs linear vs ridge vs lasso → residuals.png
+# rung 5 - ensembles
+cd ../forest
+python tree.py                               # one tree at growing depths → tree.png
+python forest.py                             # random forest + out-of-bag
+python tune.py                               # XGBoost tuned with 5-fold CV
+python importance.py                         # permutation importance → importance.png
 ```
 
 ---
