@@ -11,12 +11,12 @@ show and explains itself from first principles.
 | 1   | [`spam/`](spam/)               | SMS spam classifier - TF-IDF + Naive Bayes, with a full evaluation report | ✅ shipped |
 | 2   | [`report-card/`](report-card/) | grade a model properly - threshold tuning, ROC/PR-AUC, calibration        | ✅ shipped |
 | 3   | [`features/`](features/)       | why the features decide everything - engineer + compare, measure the lift | ✅ shipped |
-| 4   | `prices/`                      | regression - predict a number (house prices), not a class; residual plots | next       |
-| 5   | `forest/`                      | ensembles - decision tree → random forest → gradient boosting (XGBoost)   | planned    |
+| 4   | [`prices/`](prices/)           | regression - predict a number (house prices), not a class; residual plots | ✅ shipped |
+| 5   | `forest/`                      | ensembles - decision tree → random forest → gradient boosting (XGBoost)   | next       |
 | 6   | `clusters/`                    | unsupervised - find structure with no labels: k-means + PCA               | planned    |
 
 Per-rung writeups (the concepts, from first principles):
-[`spam/README.md`](spam/README.md) · [`report-card/README.md`](report-card/README.md) · [`features/README.md`](features/README.md).
+[`spam/README.md`](spam/README.md) · [`report-card/README.md`](report-card/README.md) · [`features/README.md`](features/README.md) · [`prices/README.md`](prices/README.md).
 
 ## Run it
 
@@ -33,6 +33,10 @@ python report.py                             # report card + roc.png, pr.png, ca
 # rung 3 - feature engineering
 cd ../features
 python features.py
+# rung 4 - regression
+cd ../prices
+python prices.py                             # three looks before modelling → looks.png
+python model.py                              # median guess vs linear vs ridge vs lasso → residuals.png
 ```
 
 ---
